@@ -27,7 +27,7 @@ class FilmManager{
 
   Future initialize() async {
     if(browser == null) {
-      browser = await puppeteer.launch(headless: false);
+      browser = await puppeteer.launch(headless: false, executablePath: 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe');
       browser.onTargetCreated.listen((element) async {
         if(blockNewPages) {
           var page = await element.page;
@@ -185,6 +185,7 @@ class FilmManager{
     blockNewPages = false;
 
     var finalPage = await browser.newPage();
+    await finalPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.113 Safari/537.36');
     await finalPage.goto(tempLink, wait: Until.networkIdle);
     var scripts = await finalPage.$$('script');
 
@@ -194,16 +195,20 @@ class FilmManager{
       var javascriptJson = await javascriptProperty.jsonValue;
       var javascript = await javascriptJson.toString();
       if(javascript.contains('eval')){
-        javascript = await javascriptJson.toString().replaceAll('eval(', '');
+        javascript = await javascript.replaceAll('eval(', '');
         javascript = javascript.substring(0, javascript.length - 2);
-        // ignore: omit_local_variable_types
-        String result = await finalPage.evaluate('function test(){return ($javascript).toString();}');
+        var result = await finalPage.evaluate('function test(){return ($javascript).toString();}');
         result = result.replaceAll('jwplayer("vplayer").setup({sources:[{file:"', '');
         result = result.substring(0, result.indexOf('"'));
         streamingLink = result;
+      }else if(javascript.contains('hls')){
+        var start = javascript.indexOf('[');
+        var end = javascript.indexOf(']');
+        streamingLink = javascript.substring(start + 2, end - 1);
       }
     }
 
+    print(streamingLink);
     await finalPage.close();
     newFilms.add(Film(title, description, tags, thumbnail, streamingLink));
   }
