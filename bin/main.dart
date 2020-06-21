@@ -1,37 +1,34 @@
 import 'package:angel_framework/angel_framework.dart';
 import 'package:angel_framework/http.dart';
 
-import 'factory/film_manager.dart';
-import 'template/film.dart';
-
 import 'dart:convert';
 
+import 'src/factory/film_manager.dart';
+import 'src/template/film.dart';
+import 'src/template/response.dart';
 
-FilmManager _filmManager;
 void main() async {
-  _filmManager = FilmManager();
-
   var app = Angel();
 
   app.get('/new', (req, res) async{
-    if(_filmManager.updating){
+    if(updating){
       throw AngelHttpException.notProcessable(
         message: 'Server is updating, try in a few minutes!',
       );
     }
 
-    res.write(json.encode(_filmManager.newFilms.toJson()), encoding: Encoding.getByName('utf-8'));
+    res.write(FilmResponse(films: newFilms).toJson(), encoding: Encoding.getByName('utf-8'));
     await res.close();
   });
 
   app.get('/recommended', (req, res) async{
-    if(_filmManager.updating){
+    if(updating){
       throw AngelHttpException.notProcessable(
         message: 'Server is updating, try in a few minutes!',
       );
     }
 
-    res.write(json.encode(_filmManager.recommendedFilms.toJson()), encoding: Encoding.getByName('utf-8'));
+    res.write(FilmResponse(films: recommendedFilms).toJson(), encoding: Encoding.getByName('utf-8'));
     await res.close();
   });
 
@@ -43,18 +40,16 @@ void main() async {
       );
     }
 
-    if(_filmManager.updating){
+    if(updating){
       throw AngelHttpException.notProcessable(
         message: 'Server is updating, try in a few minutes!',
       );
     }
 
     var query = queryHeader.first;
+    var films = <Film>[];
 
-    // ignore: omit_local_variable_types
-    List<Film> films = [];
-
-    var elements = await _filmManager.findFilmElementsInPage(Uri.encodeFull('https://cb01.expert/?s=$query'));
+    var elements = await findFilmElementsInPage(Uri.encodeFull('https://cb01.expert/?s=$query'));
     for(var element in elements){
       var classes = await (await element.property('className')).jsonValue;
       if(classes == null || !classes.contains('post-')){
@@ -88,7 +83,7 @@ void main() async {
       films.add(Film(text, description, tags, imageUrl, null));
     }
 
-    res.write(json.encode(FilmContainer(films).toJson()), encoding: Encoding.getByName('utf-8'));
+    res.write(FilmResponse(films: films).toJson(), encoding: Encoding.getByName('utf-8'));
     await res.close();
   });
 
@@ -100,7 +95,7 @@ void main() async {
 
   var http = AngelHttp(app);
   var server = await http.startServer('192.168.1.30', 8080);
-  await _filmManager.initialize();
+  await initialize();
 
   var url = 'http://${server.address.address}:${server.port}';
   print('Listening at $url');

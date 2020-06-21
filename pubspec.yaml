@@ -11,6 +11,7 @@ environment:
 
 dev_dependencies:
   pedantic: ^1.8.0
+  build_node_compilers: any
 dependencies:
-  puppeteer: 1.16.1
+  puppeteer: 1.17.0
   angel_framework: 2.1.1
