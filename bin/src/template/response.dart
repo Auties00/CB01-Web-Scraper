@@ -8,7 +8,7 @@ class FilmResponse {
 
   String toJson(){
     return json.encode({
-      'films' : films.map((element) => element.toJson()).toList()
+      'films' : films.map((element) => element?.toJson()).toList()
     });
   }
 }

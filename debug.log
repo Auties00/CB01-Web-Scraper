@@ -1,0 +1,11 @@
+[0621/153714.951:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.646:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.698:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.698:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.698:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.698:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.699:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.699:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.699:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.701:ERROR:process_reader_win.cc(151)] SuspendThread: Accesso negato. (0x5)
+[0622/134311.701:ERROR:exception_snapshot_win.cc(98)] thread ID 9948 not found in process

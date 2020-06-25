@@ -5,9 +5,9 @@ import 'package:puppeteer/puppeteer.dart';
 
 import '../template/film.dart';
 
-final RegExp linkExpression = RegExp(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=,]*)');
-List<Film> recommendedFilms;
-List<Film> newFilms;
+final linkExpression = RegExp(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=,]*)');
+var recommendedFilms;
+var newFilms;
 var updating = false;
 var lastTime;
 Browser browser;
@@ -17,13 +17,14 @@ Future initialize() async {
       headless: false,
       executablePath: 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
   );
+  
 
   updating = true;
 
-  var myPage = await browser.newPage();
-  await myPage.goto('https://cb01.trade/', wait: Until.domContentLoaded);
+  var page = await browser.newPage();
+  await page.goto('https://cb01.trade/', wait: Until.networkIdle);
 
-  var newFilmsTemp = await myPage.$$('li.wa_chpcs_foo_content');
+  var newFilmsTemp = await page.$$('li.wa_chpcs_foo_content');
   var newFilmsList = <Film>[];
   for(var filmElement in newFilmsTemp){
     var linkContainer = await filmElement.$('div');
@@ -37,53 +38,41 @@ Future initialize() async {
     await _extractFile(page, newFilmsList);
 
     await page.close();
+    await _tryCleanUp();
   }
 
-
-  var recommendedFilmsList = <Film>[];
   var elements = await findFilmElementsInPage('https://cb01.trade/');
+  var recommendedFilmsList = <Film>[];
   for(var recommendedFilm in elements){
-    var classes = await (await recommendedFilm.property('className')).jsonValue;
+    var classesProperty = await recommendedFilm.property('className');
+    var classes = await classesProperty.jsonValue;
     if(classes == null || !classes.contains('post-')){
       continue;
     }
 
     var linkContainerDiv = await recommendedFilm.$('div');
-    var linkContainerAnchor = await linkContainerDiv.$('a');
-    var linkContainerAnchorDiv = await linkContainerAnchor.$('div.card-image');
+    var linkContainerAnchorDiv = await linkContainerDiv.$('div.card-image');
+    var linkContainerAnchor = await linkContainerAnchorDiv.$$('a');
 
-    var linkContainerAnchorDivAnchor;
-    if(linkContainerAnchorDiv == null){
-      linkContainerAnchor = await linkContainerDiv.$('div');
-      linkContainerAnchorDivAnchor = await linkContainerAnchor.$('a');
-    }else {
-      linkContainerAnchorDivAnchor = await linkContainerAnchorDiv.$('a');
-    }
-
-    var linkProperty = await linkContainerAnchorDivAnchor.property('href');
+    var linkProperty = await linkContainerAnchor.last.property('href');
     var link = await linkProperty.jsonValue;
 
     var page = await browser.newPage();
-    await page.goto(link, wait: Until.domContentLoaded);
+    await page.goto(link, wait: Until.networkIdle);
 
     await _extractFile(page, recommendedFilmsList);
 
     await page.close();
+    await _tryCleanUp();
   }
 
-  newFilms = newFilmsList;
+
   recommendedFilms = recommendedFilmsList;
+  newFilms = newFilmsList;
   updating = false;
   lastTime = DateTime.now();
 }
 
-Future<List<ElementHandle>> findFilmElementsInPage(String url) async{
-  var page = await browser.newPage();
-  await page.goto(url, wait: Until.domContentLoaded);
-  var recommendedFilmsDiv = await page.$('div.sequex-one-columns');
-  var recommendedFilmsContainer = await recommendedFilmsDiv.$('div');
-  return await recommendedFilmsContainer.$$('div');
-}
 
 void _extractFile(Page page, List newFilms) async{
   var thumbnailContainer = await page.$('div.sequex-featured-img');
@@ -103,7 +92,7 @@ void _extractFile(Page page, List newFilms) async{
   description = description.replaceAll('+Info »', '');
 
 
-  newFilms.add(Film(title, description, tags, thumbnail, await findStreamingLink(page)));
+  newFilms.add(Film(title, description, tags, thumbnail, await findStreamingLink(page), page.url));
 }
 
 Future<String> findStreamingLink(Page page) async {
@@ -172,16 +161,35 @@ Future<String> findStreamingLink(Page page) async {
       var expResult = linkExpression.allMatches(result).firstWhere((e) => result.substring(e.start, e.end).contains('.m3u8'));
       streamingLink = result.substring(expResult.start, expResult.end);
     } else if (javascript.contains('hls')) {
-      var start = javascript.indexOf('[');
-      var end = javascript.indexOf(']');
-      streamingLink = javascript.substring(start + 2, end - 1).replaceAll('file:\"', '').replaceAll('\"', '');
+      var expResult = linkExpression.allMatches(javascript).firstWhere((e) => javascript.substring(e.start, e.end).contains('.m3u8'));
+      streamingLink = javascript.substring(expResult.start, expResult.end);
     }
   }
 
-  await finalPage.close();
+  for(var page in await browser.pages){
+    if(page.url.contains('cb01')){
+      continue;
+    }
+
+    await page.close();
+  }
+
   return streamingLink;
 }
 
+Future<List<ElementHandle>> findFilmElementsInPage(String url) async{
+  var page = await browser.newPage();
+  await page.goto(url, wait: Until.networkIdle);
+  var recommendedFilmsDiv = await page.$('div.sequex-one-columns');
+  var recommendedFilmsContainer = await recommendedFilmsDiv.$('div');
+  return await recommendedFilmsContainer.$$('div');
+}
+
+
 Future<dynamic> _findUrl() async{
   return (await browser.pages).last.url;
+}
+
+Future _tryCleanUp() async{
+  //TODO: Kill the about:blank pages that randomly show up
 }

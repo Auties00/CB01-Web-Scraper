@@ -1,5 +1,6 @@
 import 'package:angel_framework/angel_framework.dart';
 import 'package:angel_framework/http.dart';
+import 'package:puppeteer/puppeteer.dart';
 
 import 'dart:convert';
 
@@ -32,6 +33,26 @@ void main() async {
     await res.close();
   });
 
+  app.get('/stream', (req, res) async {
+    var queryHeader = req.headers['link'];
+    if(queryHeader == null){
+      throw AngelHttpException.notProcessable(
+        message: 'Query header is null, please correct your request!',
+      );
+    }
+
+    if(updating){
+      throw AngelHttpException.notProcessable(
+        message: 'Server is updating, try in a few minutes!',
+      );
+    }
+
+    var page = await browser.newPage();
+    await page.goto(queryHeader.first, wait: Until.networkIdle);
+    var result = await findStreamingLink(page);
+    await page.close();
+    return result;
+  });
   app.get('/search', (req, res) async{
     var queryHeader = req.headers['query'];
     if(queryHeader == null){
@@ -61,6 +82,9 @@ void main() async {
 
       var imageAnchor = await dataContainerChild[0].$('a');
       var imageElement = await imageAnchor.$('img');
+      var anchorProperty = await imageElement.property('href');
+      var anchorUrl = await anchorProperty.jsonValue;
+
       var imageProperty = await imageElement.property('src');
       var imageUrl = await imageProperty.jsonValue;
 
@@ -80,7 +104,7 @@ void main() async {
       var description = await descriptionProperty.jsonValue;
       description = descriptionProperty.toString().trim().replaceAll('...', '');
 
-      films.add(Film(text, description, tags, imageUrl, null));
+      films.add(Film(text, description, tags, imageUrl, null, anchorUrl));
     }
 
     res.write(FilmResponse(films: films).toJson(), encoding: Encoding.getByName('utf-8'));
