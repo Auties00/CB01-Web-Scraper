@@ -4,9 +4,9 @@ class Film{
   final String tags;
   final String thumbnailUrl;
   final String streamUrl;
-  final String link;
+  final String url;
 
-  Film(this.name, this.description, this.tags, this.thumbnailUrl, this.streamUrl, this.link);
+  Film(this.name, this.description, this.tags, this.thumbnailUrl, this.streamUrl, this.url);
 
   @override
   String toString() {
@@ -19,7 +19,8 @@ class Film{
       'description' : description,
       'tags' : tags,
       'thumbnailUrl' : thumbnailUrl,
-      'streamUrl' : streamUrl
+      'streamUrl' : streamUrl,
+      'url' : url
     };
   }
 }

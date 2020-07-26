@@ -12,12 +12,16 @@ var updating = false;
 var lastTime;
 Browser browser;
 
-Future initialize() async {
+Future startBrowser() async {
   browser ??= await puppeteer.launch(
       headless: false,
       executablePath: 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
   );
-  
+
+}
+
+Future initialize() async {
+  await startBrowser();
 
   updating = true;
 
@@ -37,8 +41,7 @@ Future initialize() async {
 
     await _extractFile(page, newFilmsList);
 
-    await page.close();
-    await _tryCleanUp();
+    await page.close();;
   }
 
   var elements = await findFilmElementsInPage('https://cb01.trade/');
@@ -63,7 +66,6 @@ Future initialize() async {
     await _extractFile(page, recommendedFilmsList);
 
     await page.close();
-    await _tryCleanUp();
   }
 
 
@@ -117,10 +119,22 @@ Future<String> findStreamingLink(Page page) async {
   var streamingPlatformProperty = await wStreamElement.property('href');
   var shortUrl = (await streamingPlatformProperty.jsonValue).toString();
 
+
+  return await extractStreamingDirectLink(shortUrl);
+}
+
+Future<String> extractStreamingDirectLink(String shortUrl) async {
   var bypassPage = await browser.newPage();
   await bypassPage.goto(shortUrl, wait: Until.networkIdle);
+  var data = await bypassPage.waitForNavigation(wait: Until.networkIdle);
   if (bypassPage.url.contains('akvideo')) {
     return 'null';
+  }
+
+  if (data.url.startsWith('https://4snip.pw/')) {
+    await bypassPage.close();
+    bypassPage = await browser.newPage();
+    await bypassPage.goto(data.url, wait: Until.networkIdle);
   }
 
   if (!bypassPage.url.endsWith('.html')) {
@@ -128,50 +142,47 @@ Future<String> findStreamingLink(Page page) async {
     await bypassPage.waitForNavigation(wait: Until.networkIdle);
 
     var url = await _findUrl();
-    if(url.startsWith('https://4snip.pw/')) {
+    if (url.startsWith('https://4snip.pw/')) {
       await bypassPage.close();
       bypassPage = await browser.newPage();
       await bypassPage.goto(url, wait: Until.networkIdle);
     }
   }
-  
+
   var url = bypassPage.url;
 
   var linkParts = url.split('/');
-  var tempLink = 'https://wstream.video/video6zvimpy52/' + linkParts[linkParts.length - 1].replaceAll('.html', '');
+  var tempLink = 'https://wstream.video/video6zvimpy52/' +
+      linkParts[linkParts.length - 1].replaceAll('.html', '');
   await bypassPage.close();
 
   var finalPage = await browser.newPage();
-  await finalPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.113 Safari/537.36');
+  await finalPage.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.113 Safari/537.36');
   await finalPage.goto(tempLink, wait: Until.networkIdle);
 
   var streamingLink;
-  for(var scriptElement in await finalPage.$$('script')){
+  for (var scriptElement in await finalPage.$$('script')) {
     var javascriptProperty = await scriptElement.property('innerText');
     var javascriptJson = await javascriptProperty.jsonValue;
     var javascript = await javascriptJson.toString();
     if (javascript.contains('eval')) {
-      if(javascript.contains('setTimeout')){
+      if (javascript.contains('setTimeout')) {
         continue;
       }
 
       javascript = await javascript.replaceAll('eval(', '');
       javascript = javascript.substring(0, javascript.length - 2);
-      var result = await finalPage.evaluate('function test(){return ($javascript).toString();}');
-      var expResult = linkExpression.allMatches(result).firstWhere((e) => result.substring(e.start, e.end).contains('.m3u8'));
+      var result = await finalPage.evaluate(
+          'function test(){return ($javascript).toString();}');
+      var expResult = linkExpression.allMatches(result).firstWhere((e) =>
+          result.substring(e.start, e.end).contains('.m3u8'));
       streamingLink = result.substring(expResult.start, expResult.end);
     } else if (javascript.contains('hls')) {
-      var expResult = linkExpression.allMatches(javascript).firstWhere((e) => javascript.substring(e.start, e.end).contains('.m3u8'));
+      var expResult = linkExpression.allMatches(javascript).firstWhere((e) =>
+          javascript.substring(e.start, e.end).contains('.m3u8'));
       streamingLink = javascript.substring(expResult.start, expResult.end);
     }
-  }
-
-  for(var page in await browser.pages){
-    if(page.url.contains('cb01')){
-      continue;
-    }
-
-    await page.close();
   }
 
   return streamingLink;
@@ -188,8 +199,4 @@ Future<List<ElementHandle>> findFilmElementsInPage(String url) async{
 
 Future<dynamic> _findUrl() async{
   return (await browser.pages).last.url;
-}
-
-Future _tryCleanUp() async{
-  //TODO: Kill the about:blank pages that randomly show up
 }
